@@ -3,13 +3,16 @@ package com.tracking.number.generator.service;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import com.mongodb.DuplicateKeyException;
+import com.tracking.number.generator.api.model.TrackingResponse;
 import com.tracking.number.generator.builder.TrackingParamsBuilder;
-import com.tracking.number.generator.model.TrackingResponse;
+import com.tracking.number.generator.data.model.TrackingData;
+import com.tracking.number.generator.repository.TrackingNumberRepository;
 import com.tracking.number.generator.util.TrackingNumberGenerator;
 
 import lombok.extern.slf4j.Slf4j;
@@ -18,40 +21,53 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class TrackingServiceImpl implements TrackingService {
 
-	private final ConcurrentHashMap<String, Boolean> generatedNumbers = new ConcurrentHashMap<>();
+    @Autowired
+    private TrackingNumberRepository trackingNumberRepository;
 
-	@Override
-	public TrackingResponse generateTrackingNumber(TrackingParamsBuilder params) {
-		log.info("TrackingServiceImpl.generateTrackingNumber(), Start of generateTrackingNumber(), params{}", params);
+    private static final int MAX_ATTEMPTS = 5;
+    
 
-		String trackingNumber;
-		do {
-			trackingNumber = TrackingNumberGenerator.generateTrackingNumber(16);
-			log.debug("TrackingServiceImpl.generateTrackingNumber(), The trackingNumber number has been generated{}", trackingNumber);
+    @Override
+    public TrackingResponse generateTrackingNumber(TrackingParamsBuilder params) {
+        log.info("Start generateTrackingNumber, params={}", params);
 
-		} while (generatedNumbers.putIfAbsent(trackingNumber, true) != null);
+        String trackingNumber = null;
+        String createdAt = null;
+        TrackingData trackingData = null;
 
-		String createdAt = OffsetDateTime.now(ZoneOffset.UTC).format(DateTimeFormatter.ISO_OFFSET_DATE_TIME);
-		TrackingResponse trackingResponse = new TrackingResponse(trackingNumber, createdAt);
-		
-		  // Set fields only if present
-		if (params.getCustomerId() != null) {
-			trackingResponse.setCustomerId(params.getCustomerId());
-		}
-	    setIfNotNull(params.getCustomerName(), trackingResponse::setCustomerName);
-	    setIfNotNull(params.getCustomerSlug(), trackingResponse::setCustomerSlug);
-	    setIfNotNull(params.getDestinationCountryId(), trackingResponse::setDestinationCountryId);
-	    setIfNotNull(params.getOriginCountryId(), trackingResponse::setOriginCountryId);
-	    setIfNotNull(params.getWeight(), trackingResponse::setWeight);
+        for (int attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+            trackingNumber = TrackingNumberGenerator.generateTrackingNumber(16);
+            createdAt = OffsetDateTime.now(ZoneOffset.UTC).format(DateTimeFormatter.ISO_OFFSET_DATE_TIME);
+            try {
+            	trackingData = new TrackingData(trackingNumber, createdAt);
+            	trackingData = trackingNumberRepository.save(trackingData);
+                log.debug("Generated tracking number={} on attempt {}", trackingNumber, attempt);
+                break;
+            } catch (DuplicateKeyException e) {
+                log.error("Duplicate tracking number detected ({}). Retrying attempt {}/{}", trackingNumber, attempt, MAX_ATTEMPTS);
+                if (attempt == MAX_ATTEMPTS) {
+                    throw new IllegalStateException("Failed to generate unique tracking number after " + MAX_ATTEMPTS + " attempts", e);
+                }
+            }
+        }
 
-		return trackingResponse;
-	}
-	
-	private <T> void setIfNotNull(T value, Consumer<T> setter) {
-	    if (value != null) {
-	        setter.accept(value);
-	    }
-	}
-	
+        
+        TrackingResponse trackingResponse = new TrackingResponse(trackingNumber, createdAt);
+        if (params.getCustomerId() != null) {
+            trackingResponse.setCustomerId(params.getCustomerId());
+        }
+        setIfNotNull(params.getCustomerName(), trackingResponse::setCustomerName);
+        setIfNotNull(params.getCustomerSlug(), trackingResponse::setCustomerSlug);
+        setIfNotNull(params.getDestinationCountryId(), trackingResponse::setDestinationCountryId);
+        setIfNotNull(params.getOriginCountryId(), trackingResponse::setOriginCountryId);
+        setIfNotNull(params.getWeight(), trackingResponse::setWeight);
 
+        return trackingResponse;
+    }
+
+    private <T> void setIfNotNull(T value, Consumer<T> setter) {
+        if (value != null) {
+            setter.accept(value);
+        }
+    }
 }

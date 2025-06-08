@@ -6,20 +6,20 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.tracking.number.generator.api.model.TrackingResponse;
 import com.tracking.number.generator.builder.TrackingParamsBuilder;
-import com.tracking.number.generator.model.TrackingResponse;
 import com.tracking.number.generator.service.TrackingService;
 
 import lombok.extern.slf4j.Slf4j;
 
 @RestController
 @Slf4j
-public class TrackingController implements TrackingControllerApi{
+public class TrackingApiController implements TrackingApi{
 	@Autowired
 	private TrackingService trackingService;
 
     @Override
-    public ResponseEntity<TrackingResponse> getNextTrackingNumber(
+    public ResponseEntity<TrackingResponse> generateTrackingNumber(
     		String originCountryId,
     		String destinationCountryId,
     		String weight,
@@ -28,7 +28,7 @@ public class TrackingController implements TrackingControllerApi{
     		String customerName, 
     		String customerSlug) {
 		log.info(
-				"Starting the getNextTrackingNumber(), originCountryId{}, destinationCountryId{}, weight{}, createdAt{}, customerId{}, customerName{}, customerSlug{}",
+				"Starting the generateTrackingNumber(), originCountryId{}, destinationCountryId{}, weight{}, createdAt{}, customerId{}, customerName{}, customerSlug{}",
 				originCountryId, destinationCountryId, weight, createdAt, customerId, customerName, customerSlug);
     	try {
     		TrackingParamsBuilder params = new TrackingParamsBuilder.Builder()
@@ -45,7 +45,7 @@ public class TrackingController implements TrackingControllerApi{
 			log.debug("Successfully generated the tracking number response{}", response);
             return ResponseEntity.ok(response);
 		} catch (Exception e) {
-			log.debug("getNextTrackingNumber(),An error occured while generating the tracker number {}", e);
+			log.error("generateTrackingNumber(),An error occured while generating the tracker number {}", e);
 			throw e;
 		}
     }

@@ -1,7 +1,7 @@
 package com.tracking.number.generator.service;
 
+import com.tracking.number.generator.api.model.TrackingResponse;
 import com.tracking.number.generator.builder.TrackingParamsBuilder;
-import com.tracking.number.generator.model.TrackingResponse;
 
 public interface TrackingService {
 

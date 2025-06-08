@@ -1,4 +1,4 @@
-package com.tracking.number.generator.model;
+package com.tracking.number.generator.api.model;
 
 import java.util.UUID;
 
