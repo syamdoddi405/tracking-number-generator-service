@@ -3,16 +3,17 @@ package com.tracking.number.generator.service;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
-import java.util.function.Consumer;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
-import com.mongodb.DuplicateKeyException;
-import com.tracking.number.generator.api.model.TrackingResponse;
-import com.tracking.number.generator.builder.TrackingParamsBuilder;
+import com.tracking.number.generator.api.model.TrackingInfo;
+import com.tracking.number.generator.builder.TrackingCriteriaSearchBuilder;
+import com.tracking.number.generator.builder.TrackingInfoBuilder;
+import com.tracking.number.generator.data.DuplicateTrackingNumberException;
 import com.tracking.number.generator.data.model.TrackingData;
 import com.tracking.number.generator.repository.TrackingNumberRepository;
+import com.tracking.number.generator.retryStrategy.TrackingRetryStrategy;
 import com.tracking.number.generator.util.TrackingNumberGenerator;
 
 import lombok.extern.slf4j.Slf4j;
@@ -21,53 +22,35 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class TrackingServiceImpl implements TrackingService {
 
-    @Autowired
-    private TrackingNumberRepository trackingNumberRepository;
+	@Autowired
+	private TrackingNumberRepository trackingNumberRepository;
 
-    private static final int MAX_ATTEMPTS = 5;
-    
+	private static final int MAX_RETRY_ATTEMPTS = 3;
 
-    @Override
-    public TrackingResponse generateTrackingNumber(TrackingParamsBuilder params) {
-        log.info("Start generateTrackingNumber, params={}", params);
+	@Autowired
+	private TrackingRetryStrategy retryStrategy;
 
-        String trackingNumber = null;
-        String createdAt = null;
-        TrackingData trackingData = null;
+	@Override
+	public TrackingInfo generateTrackingNumber(TrackingCriteriaSearchBuilder trackingCriteriaSearchBuilder) {
+		log.info("Start generateTrackingNumber, params={}", trackingCriteriaSearchBuilder);
 
-        for (int attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
-            trackingNumber = TrackingNumberGenerator.generateTrackingNumber(16);
-            createdAt = OffsetDateTime.now(ZoneOffset.UTC).format(DateTimeFormatter.ISO_OFFSET_DATE_TIME);
-            try {
-            	trackingData = new TrackingData(trackingNumber, createdAt);
-            	trackingData = trackingNumberRepository.save(trackingData);
-                log.debug("Generated tracking number={} on attempt {}", trackingNumber, attempt);
-                break;
-            } catch (DuplicateKeyException e) {
-                log.error("Duplicate tracking number detected ({}). Retrying attempt {}/{}", trackingNumber, attempt, MAX_ATTEMPTS);
-                if (attempt == MAX_ATTEMPTS) {
-                    throw new IllegalStateException("Failed to generate unique tracking number after " + MAX_ATTEMPTS + " attempts", e);
-                }
-            }
-        }
+		return retryStrategy.execute(() -> {
+			String trackingNumber = TrackingNumberGenerator.generateTrackingNumber(16);
+			validateUniqueTrackingNumber(trackingNumber);
+			String createdAt = OffsetDateTime.now(ZoneOffset.UTC).format(DateTimeFormatter.ISO_OFFSET_DATE_TIME);
 
-        
-        TrackingResponse trackingResponse = new TrackingResponse(trackingNumber, createdAt);
-        if (params.getCustomerId() != null) {
-            trackingResponse.setCustomerId(params.getCustomerId());
-        }
-        setIfNotNull(params.getCustomerName(), trackingResponse::setCustomerName);
-        setIfNotNull(params.getCustomerSlug(), trackingResponse::setCustomerSlug);
-        setIfNotNull(params.getDestinationCountryId(), trackingResponse::setDestinationCountryId);
-        setIfNotNull(params.getOriginCountryId(), trackingResponse::setOriginCountryId);
-        setIfNotNull(params.getWeight(), trackingResponse::setWeight);
+			TrackingData trackingData = new TrackingData(trackingNumber, createdAt);
+			trackingData = trackingNumberRepository.save(trackingData);
 
-        return trackingResponse;
-    }
+			log.debug("Generated tracking number={} ", trackingNumber);
+			return TrackingInfoBuilder.build(trackingCriteriaSearchBuilder, trackingData);
+		}, MAX_RETRY_ATTEMPTS);
+	}
 
-    private <T> void setIfNotNull(T value, Consumer<T> setter) {
-        if (value != null) {
-            setter.accept(value);
-        }
-    }
+	private void validateUniqueTrackingNumber(String trackingNumber) {
+		if (trackingNumberRepository.existsById(trackingNumber)) {
+			throw new DuplicateTrackingNumberException("Tracking number already exists: " + trackingNumber);
+		}
+	}
+
 }

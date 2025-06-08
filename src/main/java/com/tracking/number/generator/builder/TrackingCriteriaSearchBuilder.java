@@ -2,7 +2,7 @@ package com.tracking.number.generator.builder;
 
 import java.util.UUID;
 
-public class TrackingParamsBuilder {
+public class TrackingCriteriaSearchBuilder {
 	private String originCountryId;
 	private String destinationCountryId;
 	private String weight;
@@ -10,6 +10,7 @@ public class TrackingParamsBuilder {
 	private UUID customerId;
 	private String customerName;
 	private String customerSlug;
+	private String trackingNumber;
 
 	// Getters
 	public String getOriginCountryId() {
@@ -39,57 +40,66 @@ public class TrackingParamsBuilder {
 	public String getCustomerSlug() {
 		return customerSlug;
 	}
+	
 
-	// Optional: toString()
+	public String getTrackingNumber() {
+		return trackingNumber;
+	}
+
 	@Override
 	public String toString() {
-		return "TrackingParams{" + "originCountryId='" + originCountryId + '\'' + ", destinationCountryId='"
-				+ destinationCountryId + '\'' + ", weight='" + weight + '\'' + ", createdAt='" + createdAt + '\''
-				+ ", customerId='" + customerId + '\'' + ", customerName='" + customerName + '\'' + ", customerSlug='"
-				+ customerSlug + '\'' + '}';
+		return "TrackingParamsBuilder [originCountryId=" + originCountryId + ", destinationCountryId="
+				+ destinationCountryId + ", weight=" + weight + ", createdAt=" + createdAt + ", customerId="
+				+ customerId + ", customerName=" + customerName + ", customerSlug=" + customerSlug + ", trackingNumber="
+				+ trackingNumber + "]";
 	}
 
 	// Builder inner class
 	public static class Builder {
-		private final TrackingParamsBuilder params = new TrackingParamsBuilder();
+		private final TrackingCriteriaSearchBuilder trackingCriteriaSearchBuilder = new TrackingCriteriaSearchBuilder();
 
 		public Builder originCountryId(String originCountryId) {
-			params.originCountryId = originCountryId;
+			trackingCriteriaSearchBuilder.originCountryId = originCountryId;
 			return this;
 		}
 
 		public Builder destinationCountryId(String destinationCountryId) {
-			params.destinationCountryId = destinationCountryId;
+			trackingCriteriaSearchBuilder.destinationCountryId = destinationCountryId;
 			return this;
 		}
 
 		public Builder weight(String weight) {
-			params.weight = weight;
+			trackingCriteriaSearchBuilder.weight = weight;
 			return this;
 		}
 
 		public Builder createdAt(String createdAt) {
-			params.createdAt = createdAt;
+			trackingCriteriaSearchBuilder.createdAt = createdAt;
 			return this;
 		}
 
 		public Builder customerId(UUID customerId) {
-			params.customerId = customerId;
+			trackingCriteriaSearchBuilder.customerId = customerId;
 			return this;
 		}
 
 		public Builder customerName(String customerName) {
-			params.customerName = customerName;
+			trackingCriteriaSearchBuilder.customerName = customerName;
 			return this;
 		}
 
 		public Builder customerSlug(String customerSlug) {
-			params.customerSlug = customerSlug;
+			trackingCriteriaSearchBuilder.customerSlug = customerSlug;
+			return this;
+		}
+		
+		public Builder trackingNumber(String trackingNumber) {
+			trackingCriteriaSearchBuilder.trackingNumber = trackingNumber;
 			return this;
 		}
 
-		public TrackingParamsBuilder build() {
-			return params;
+		public TrackingCriteriaSearchBuilder build() {
+			return trackingCriteriaSearchBuilder;
 		}
 	}
 
